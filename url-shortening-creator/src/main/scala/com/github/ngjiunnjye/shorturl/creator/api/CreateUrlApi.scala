@@ -1,44 +1,24 @@
 package com.github.ngjiunnjye.shorturl.creator.api
 
-import scala.concurrent.Await
-import scala.concurrent.duration.DurationInt
-
-import com.github.ngjiunnjye.shorturl.creator.actor.InsertStatus
-import com.github.ngjiunnjye.shorturl.utils.JsProtocol
-import com.github.ngjiunnjye.shorturl.utils.UrlShorteningRequest
-
-import akka.actor.ActorRef
-import akka.actor.ActorSystem
+import akka.actor.{ActorRef, ActorSystem}
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport.sprayJsonUnmarshaller
 import akka.http.scaladsl.marshalling.ToResponseMarshallable.apply
-import akka.http.scaladsl.model.ContentTypes
-import akka.http.scaladsl.model.HttpEntity
-import akka.http.scaladsl.server.Directive.addByNameNullaryApply
-import akka.http.scaladsl.server.Directive.addDirectiveApply
-import akka.http.scaladsl.server.Directives.as
-import akka.http.scaladsl.server.Directives.complete
-import akka.http.scaladsl.server.Directives.decodeRequest
-import akka.http.scaladsl.server.Directives.enhanceRouteWithConcatenation
-import akka.http.scaladsl.server.Directives.entity
-import akka.http.scaladsl.server.Directives.get
-import akka.http.scaladsl.server.Directives.path
-import akka.http.scaladsl.server.Directives.post
-import akka.http.scaladsl.server.Directives.segmentStringToPathMatcher
+import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse, StatusCodes}
+import akka.http.scaladsl.server.Directive.{addByNameNullaryApply, addDirectiveApply}
+import akka.http.scaladsl.server.Directives.{as, complete, decodeRequest, entity, get, path, post, _}
+import akka.http.scaladsl.server.StandardRoute
 import akka.pattern.ask
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
-import spray.json.DefaultJsonProtocol
-import com.github.ngjiunnjye.kafka.{ Producer => KafkaProducer }
-import com.github.ngjiunnjye.shorturl.utils.UrlShorteningCommand
-import org.apache.kafka.clients.producer.ProducerRecord
-import com.github.ngjiunnjye.shorturl.utils.Config
-import com.github.ngjiunnjye.shorturl.utils.JsProtocol
-import spray.json.pimpAny
 import com.github.ngjiunnjye.cryptor.Base62
-import akka.http.scaladsl.model.HttpResponse
-import akka.http.scaladsl.model.StatusCodes
-import com.github.ngjiunnjye.shorturl.utils.UrlShorteningRespond
-import akka.http.scaladsl.server.StandardRoute
+import com.github.ngjiunnjye.kafka.{Producer => KafkaProducer}
+import com.github.ngjiunnjye.shorturl.creator.actor.InsertStatus
+import com.github.ngjiunnjye.shorturl.utils._
+import org.apache.kafka.clients.producer.ProducerRecord
+import spray.json.{DefaultJsonProtocol, pimpAny}
+
+import scala.concurrent.Await
+import scala.concurrent.duration.DurationInt
 
 
 trait UrlApi extends DefaultJsonProtocol with Config {

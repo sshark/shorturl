@@ -1,23 +1,15 @@
 package com.github.ngjiunnjye.shorturl.creator
 
-import scala.io.StdIn
-
-import com.github.ngjiunnjye.shorturl.creator.actor.InventoryManagerActor
-import com.github.ngjiunnjye.shorturl.creator.actor.InventoryManagerProxy
-import com.github.ngjiunnjye.shorturl.creator.api.RootApi
-import com.github.ngjiunnjye.shorturl.creator.api.UrlApi
+import akka.actor.{ActorRef, ActorSystem, PoisonPill, Props}
+import akka.cluster.singleton.{ClusterSingletonManager, ClusterSingletonManagerSettings}
+import akka.http.scaladsl.Http
+import akka.http.scaladsl.server.Directives._
+import akka.stream.ActorMaterializer
+import com.github.ngjiunnjye.shorturl.creator.actor.{InventoryManagerActor, InventoryManagerProxy}
+import com.github.ngjiunnjye.shorturl.creator.api.{RootApi, UrlApi}
 import com.github.ngjiunnjye.shorturl.utils.Config
 
-import akka.actor.ActorRef
-import akka.actor.ActorSystem
-import akka.actor.PoisonPill
-import akka.actor.Props
-import akka.cluster.singleton.ClusterSingletonManager
-import akka.cluster.singleton.ClusterSingletonManagerSettings
-import akka.http.scaladsl.Http
-import akka.http.scaladsl.server.Directives.enhanceRouteWithConcatenation
-import akka.http.scaladsl.server.RouteResult.route2HandlerFlow
-import akka.stream.ActorMaterializer
+import scala.io.StdIn
 
 
 object UrlCreator extends RootApi with UrlApi with Config {

@@ -1,30 +1,21 @@
 package com.github.ngjiunnjye.shorturl.redirect.api
 
-import scala.concurrent.Await
-import scala.concurrent.duration.DurationInt
-
-import com.github.ngjiunnjye.cryptor.Base62
-import com.github.ngjiunnjye.shorturl.utils.Config
-import com.github.ngjiunnjye.shorturl.redirect.actor.QueryStatus
-
-import akka.actor.ActorRef
-import akka.actor.ActorSystem
+import akka.actor.{ActorRef, ActorSystem}
 import akka.http.scaladsl.marshalling.ToResponseMarshallable.apply
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.model.Uri.apply
-import akka.http.scaladsl.server.Directive.addByNameNullaryApply
-import akka.http.scaladsl.server.Directive.addDirectiveApply
-import akka.http.scaladsl.server.Directives.Segment
-import akka.http.scaladsl.server.Directives.complete
-import akka.http.scaladsl.server.Directives.enhanceRouteWithConcatenation
-import akka.http.scaladsl.server.Directives.get
-import akka.http.scaladsl.server.Directives.path
-import akka.http.scaladsl.server.Directives.redirect
-import akka.http.scaladsl.server.Directives.segmentStringToPathMatcher
+import akka.http.scaladsl.server.Directive.{addByNameNullaryApply, addDirectiveApply}
+import akka.http.scaladsl.server.Directives.{Segment, complete, get, path, redirect, _}
 import akka.pattern.ask
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
+import com.github.ngjiunnjye.cryptor.Base62
+import com.github.ngjiunnjye.shorturl.redirect.actor.QueryStatus
+import com.github.ngjiunnjye.shorturl.utils.Config
 import spray.json.DefaultJsonProtocol
+
+import scala.concurrent.Await
+import scala.concurrent.duration.DurationInt
 
 case class UrlShorteningRequest(sourceUrl: String, targetUrl: Option[String], requestTime : Option[Long])
 
@@ -57,5 +48,4 @@ trait ResolveUrlApi extends DefaultJsonProtocol {
       redirect(s"http://${readerNodeAddresses.get(respNode)}/${shortUrl}", StatusCodes.MovedPermanently)
     }
   }
-
 }
