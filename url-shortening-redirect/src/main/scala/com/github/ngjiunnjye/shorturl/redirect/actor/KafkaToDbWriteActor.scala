@@ -17,15 +17,15 @@ import scala.concurrent.duration.DurationInt
 import scala.util.Try
 
 
-class KafkaToDbWriteActor  extends Actor with Config with CreateShortUrlTable{
+class KafkaToDbWriteActor extends Actor with Config with CreateShortUrlTable {
   val jdbcConn = {
     Class.forName("org.h2.Driver");
     DriverManager.getConnection(s"jdbc:h2:tcp://${h2ServerUrls.get(nodeId)}", "", "");
   }
-    
+
   val insertPS = Try {
-      createShortUrlTableIfNotExists (jdbcConn)
-      jdbcConn.prepareStatement("insert into short_Url (id, long_url, random) values (?,?, ?)")
+    createShortUrlTableIfNotExists(jdbcConn)
+    jdbcConn.prepareStatement("insert into short_Url (id, long_url, random) values (?,?, ?)")
   }
 
   val consumer = KafkaConsumer.createStringStringConsumer(s"redirect")
@@ -39,7 +39,7 @@ class KafkaToDbWriteActor  extends Actor with Config with CreateShortUrlTable{
     case "FetchKafkaMessage" =>
       val fetchSize = fetch
       if (fetchSize > 0) consumer.commitSync
-      
+
   }
 
   override def preStart() = {
@@ -55,12 +55,12 @@ class KafkaToDbWriteActor  extends Actor with Config with CreateShortUrlTable{
       //TODO commit after write val offset = record.offset()
       JsonParser(kafkaMsg).convertTo[UrlShorteningCommand] match {
         case cmd: UrlShorteningCommand =>
-          insert (cmd)
-        case _ => println (s"????") 
+          insert(cmd)
+        case _ => println(s"????")
       }
     }
     scheduleFetchMessage
-    records.size    
+    records.size
   }
 
   def scheduleFetchMessage =
@@ -68,22 +68,23 @@ class KafkaToDbWriteActor  extends Actor with Config with CreateShortUrlTable{
 
   def close: Unit = consumer.close()
 
-  def insert (cmd : UrlShorteningCommand) = for {
-    insertPS.setLong(1, cmd.shortUrlId)
-    insertPS.setString(2, cmd.longUrl)
-    insertPS.setBoolean(3, cmd.random)
-    insertPS.executeUpdate()
+  def insert(cmd: UrlShorteningCommand) =
+    insertPS.map(ps => {
+      ps.setLong(1, cmd.shortUrlId)
+      ps.setString(2, cmd.longUrl)
+      ps.setBoolean(3, cmd.random)
+      ps.executeUpdate()
+    })
+
+  /*
+  match{
+    case Success(s) =>
+      println(s"ShortUrl Entry Created ID: id:${cmd.shortUrlId} longUrl:${cmd.longUrl} random:${cmd.random}")
+
+    case Failure(e) =>
+      println(s"ShortUrl Entry Fail ID: id:${cmd.shortUrlId} longUrl:${cmd.longUrl} random:${cmd.random} ${e.getMessage}")
+
   }
-
-      /*
-      match{
-        case Success(s) =>
-          println(s"ShortUrl Entry Created ID: id:${cmd.shortUrlId} longUrl:${cmd.longUrl} random:${cmd.random}")
-
-        case Failure(e) =>
-          println(s"ShortUrl Entry Fail ID: id:${cmd.shortUrlId} longUrl:${cmd.longUrl} random:${cmd.random} ${e.getMessage}")
-          
-      }
-      */
+  */
 
 }

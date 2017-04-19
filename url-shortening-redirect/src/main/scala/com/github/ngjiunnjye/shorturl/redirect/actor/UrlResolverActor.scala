@@ -1,19 +1,13 @@
 package com.github.ngjiunnjye.shorturl.redirect.actor
 
-import java.sql.DriverManager
-import java.sql.PreparedStatement
-import java.sql.SQLException
+import java.sql.{DriverManager, PreparedStatement}
 
-import scala.util.Failure
-import scala.util.Success
-import scala.util.Try
-
+import akka.actor.{Actor, actorRef2Scala}
 import com.github.ngjiunnjye.cryptor.Base62
+import com.github.ngjiunnjye.shorturl.redirect.db.CreateShortUrlTable
 import com.github.ngjiunnjye.shorturl.utils.Config
 
-import akka.actor.Actor
-import akka.actor.actorRef2Scala
-import com.github.ngjiunnjye.shorturl.redirect.db.CreateShortUrlTable
+import scala.util.{Failure, Success, Try}
 
 
 case class QueryStatus (status : Boolean, message : String )
@@ -44,8 +38,9 @@ class UrlResolverActor extends Actor with Config with CreateShortUrlTable{
   }
   
   def processUrlResolver (shortUrl : String) = {
-    Try {        
-        queryPs.setLong(1,Base62.decode(shortUrl))
+    Base62.decode(shortUrl).flatMap(code => {
+      queryPs.setLong(1,code)
+
         queryPs.executeQuery()
       } match{
         case Success(rs) =>
@@ -56,6 +51,4 @@ class UrlResolverActor extends Actor with Config with CreateShortUrlTable{
         case Failure(e) => QueryStatus(false, e.getMessage)
       }
   }
-  
-  
 }
