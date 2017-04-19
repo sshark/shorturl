@@ -1,28 +1,20 @@
 package com.github.ngjiunnjye.shorturl.redirect.actor
 
 import java.sql.DriverManager
-import java.sql.PreparedStatement
-import java.sql.SQLException
-
-import scala.collection.JavaConversions.iterableAsScalaIterable
-import scala.collection.JavaConversions.seqAsJavaList
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration.DurationInt
-import scala.util.Failure
-import scala.util.Success
-import scala.util.Try
-
-import org.apache.kafka.common.TopicPartition
-
-import com.github.ngjiunnjye.kafka.{ Consumer => KafkaConsumer }
-import com.github.ngjiunnjye.shorturl.utils.Config
-import com.github.ngjiunnjye.shorturl.utils.JsProtocol.commandFormat
-import com.github.ngjiunnjye.shorturl.utils.UrlShorteningCommand
 
 import akka.actor.Actor
+import com.github.ngjiunnjye.kafka.{Consumer => KafkaConsumer}
+import com.github.ngjiunnjye.shorturl.redirect.db.CreateShortUrlTable
+import com.github.ngjiunnjye.shorturl.utils.JsProtocol.commandFormat
+import com.github.ngjiunnjye.shorturl.utils.{Config, UrlShorteningCommand}
+import org.apache.kafka.common.TopicPartition
 import spray.json.JsonParser
 import spray.json.ParserInput.apply
-import com.github.ngjiunnjye.shorturl.redirect.db.CreateShortUrlTable
+
+import scala.collection.JavaConversions.{iterableAsScalaIterable, seqAsJavaList}
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration.DurationInt
+import scala.util.Try
 
 
 class KafkaToDbWriteActor  extends Actor with Config with CreateShortUrlTable{
@@ -31,16 +23,9 @@ class KafkaToDbWriteActor  extends Actor with Config with CreateShortUrlTable{
     DriverManager.getConnection(s"jdbc:h2:tcp://${h2ServerUrls.get(nodeId)}", "", "");
   }
     
-  val insertPS: PreparedStatement = {
-    Try {
+  val insertPS = Try {
       createShortUrlTableIfNotExists (jdbcConn)
-        
       jdbcConn.prepareStatement("insert into short_Url (id, long_url, random) values (?,?, ?)")
-      
-    } match {
-      case Success(ps) => ps
-      case Failure(e) => throw e
-    }     
   }
 
   val consumer = KafkaConsumer.createStringStringConsumer(s"redirect")
@@ -81,17 +66,17 @@ class KafkaToDbWriteActor  extends Actor with Config with CreateShortUrlTable{
   def scheduleFetchMessage =
     context.system.scheduler.scheduleOnce(1.second, self, "FetchKafkaMessage")
 
-  def close: Unit = {
-    consumer.close()
+  def close: Unit = consumer.close()
+
+  def insert (cmd : UrlShorteningCommand) = for {
+    insertPS.setLong(1, cmd.shortUrlId)
+    insertPS.setString(2, cmd.longUrl)
+    insertPS.setBoolean(3, cmd.random)
+    insertPS.executeUpdate()
   }
-  
-  def insert (cmd : UrlShorteningCommand) = {
-      Try {        
-        insertPS.setLong(1, cmd.shortUrlId)
-        insertPS.setString(2, cmd.longUrl)
-        insertPS.setBoolean(3, cmd.random)
-        insertPS.executeUpdate()
-      } match{
+
+      /*
+      match{
         case Success(s) =>
           println(s"ShortUrl Entry Created ID: id:${cmd.shortUrlId} longUrl:${cmd.longUrl} random:${cmd.random}")
 
@@ -99,6 +84,6 @@ class KafkaToDbWriteActor  extends Actor with Config with CreateShortUrlTable{
           println(s"ShortUrl Entry Fail ID: id:${cmd.shortUrlId} longUrl:${cmd.longUrl} random:${cmd.random} ${e.getMessage}")
           
       }
-  }
+      */
 
 }

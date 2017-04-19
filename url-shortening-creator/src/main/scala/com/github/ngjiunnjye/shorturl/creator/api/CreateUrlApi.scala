@@ -44,12 +44,7 @@ trait UrlApi extends DefaultJsonProtocol with Config {
   def processUrlShortReq (req : UrlShorteningRequest ) : StandardRoute = {
 
     complete {
-      println(s"Request received ${req.longUrl} ->   ${
-        req.shortUrl match {
-          case Some(s) => s
-          case None    => "NONE"
-        }
-      }")
+      println(s"Request received ${req.longUrl} -> ${req.shortUrl.getOrElse("NONE")}")
       implicit val timeout = Timeout(30 seconds)
       val future = inventoryManager ? req
       val result = Await.result(future, timeout.duration).asInstanceOf[InsertStatus]
@@ -60,18 +55,16 @@ trait UrlApi extends DefaultJsonProtocol with Config {
         else
           req.shortUrl)
 
-      if (result.status == true) {
-        createCommand(req.longUrl,
-          Base62.decode(result.message),
-          req.shortUrl match {
-            case Some(s) => false
-            case None    => true
-          })
-        HttpResponse(entity = respond.toJson.compactPrint)
+      // TODO Try[HttpResponse] vs HttpResponse
+      if (result.status) {
+        Base62.decode(result.message).map(id => {
+          createCommand(req.longUrl,
+            id,
+            req.shortUrl.isDefined)
+          HttpResponse(entity = respond.toJson.compactPrint)
+        })
       } else
         HttpResponse(StatusCodes.BadRequest, entity = respond.toJson.compactPrint)
-
-    }
   }
   
   def createCommand(longUrl: String, shortUrlId: Long, random : Boolean) = {

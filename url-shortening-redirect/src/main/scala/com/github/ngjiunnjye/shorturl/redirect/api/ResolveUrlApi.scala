@@ -34,7 +34,7 @@ trait ResolveUrlApi extends DefaultJsonProtocol {
     } ~ path(Segment) { shortUrl =>
     println(s"Request received ${shortUrl}")
     val respNode = (Base62.decode(shortUrl) % 2).toInt
-    if (respNode == (nodeId)) {
+    if (respNode == nodeId) {
       implicit val timeout = Timeout(30 seconds)
       val future = urlResolverActor ? shortUrl
       val result = Await.result(future, timeout.duration).asInstanceOf[QueryStatus]

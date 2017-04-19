@@ -6,15 +6,11 @@ object Base62 {
   private val base62Dict = (('0' to '9') ++ ('a' to 'z') ++ ('A' to 'Z')).toSeq
   private val base62Size = base62Dict.size
 
-  def encode(num: Long): String = {
-    def loop(buf: String, left: Long): String = {
-      if (left < 62L) base62Dict((left % base62Size).toInt) + buf
-      else {
-        loop(base62Dict((left % base62Size).toInt) + buf, (left / base62Size))
-      }
+  def encode(num: Long, buf: String = ""): String = {
+    if (num < 62L) base62Dict((num % base62Size).toInt) + buf
+    else {
+      encode(num / base62Size, base62Dict((num % base62Size).toInt) + buf)
     }
-
-    loop("", num)
   }
 
   def decode(encoded: String, sum: Long = 0): Try[Long] =
