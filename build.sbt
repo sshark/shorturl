@@ -1,10 +1,11 @@
 val akkaStreamVersion = "10.0.5"
 val akkaVersion = "2.5.0"
 
+scalaVersion in ThisBuild := "2.12.2"
+
 lazy val commonSettings = Seq(
   organization := "com.github.ngjiunnjye",
   version := "0.0.1",
-  scalaVersion := "2.12.2",
   libraryDependencies ++= Seq(
     "com.typesafe.akka" %% "akka-actor" % akkaVersion,
     "com.typesafe.akka" %% "akka-stream" % akkaVersion,
@@ -25,7 +26,7 @@ lazy val commonSettings = Seq(
 
 scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8")
 
-lazy val root = project aggregate(common, redirect, creator)
+lazy val root = project.aggregate(common, redirect, creator)
 
 lazy val common = (project in file("url-shortening-common"))
   .settings(commonSettings: _*)
