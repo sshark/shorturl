@@ -34,10 +34,10 @@ class UrlResolverActor extends Actor with Config with CreateShortUrlTable {
     conn <- jdbcConn
     ps <- queryPs(conn)
     code <- Base62.decode(shortUrl)
-    shortCode <-  retrieveStringCode(ps, code)
+    shortCode <- retrieveStringCode(ps, code)
   } yield shortCode
 
-  def retrieveStringCode(ps: PreparedStatement, code: Long) = {
+  def retrieveStringCode(ps: PreparedStatement, code: Long) = Try {
       ps.setLong(1, code)
       val rs = ps.executeQuery()
       if (rs.next()) Some(rs.getString(1))
