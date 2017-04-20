@@ -8,14 +8,13 @@ import akka.http.scaladsl.server.Directive.{addByNameNullaryApply, addDirectiveA
 import akka.http.scaladsl.server.Directives.{Segment, complete, get, path, redirect, _}
 import akka.pattern.ask
 import akka.stream.ActorMaterializer
-import akka.util.Timeout
 import com.github.ngjiunnjye.cryptor.Base62
 import com.github.ngjiunnjye.shorturl.redirect.actor.QueryStatus
 import com.github.ngjiunnjye.shorturl.utils.Config
 import spray.json.DefaultJsonProtocol
 
-import scala.concurrent.Await
-import scala.concurrent.duration.DurationInt
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 
 case class UrlShorteningRequest(sourceUrl: String, targetUrl: Option[String], requestTime : Option[Long])
 
@@ -31,9 +30,26 @@ trait ResolveUrlApi extends DefaultJsonProtocol {
       get {
         complete("Unable to find site to redirect to")
       }
-    } ~ path(Segment) { shortUrl =>
-    println(s"Request received ${shortUrl}")
-    val respNode = (Base62.decode(shortUrl) % 2).toInt
+    } ~ path(Segment) { shortUrl => {
+      println(s"Request received ${shortUrl}")
+
+      val queryStatusFuture = for {
+        respNode <- Future.fromTry(Base62.decode(shortUrl))
+        result <- (urlResolverActor ? shortUrl) if respNode == nodeId
+      } yield result
+
+      queryStatusFuture.map(x => {
+        val queryStatus = x.asInstanceOf[QueryStatus]
+        if (queryStatus.status) redirect(queryStatus.message, StatusCodes.MovedPermanently)
+        else redirect("unabletofindsitetoredirectto", StatusCodes.PermanentRedirect)
+      }).recover{case t => redirect(s"http://${readerNodeAddresses.get(respNode)}/${shortUrl}", StatusCodes.MovedPermanently)}
+
+    }
+  }
+
+
+/*
+    val respNode = ( % 2).toInt
     if (respNode == nodeId) {
       implicit val timeout = Timeout(30 seconds)
       val future = urlResolverActor ? shortUrl
@@ -48,4 +64,5 @@ trait ResolveUrlApi extends DefaultJsonProtocol {
       redirect(s"http://${readerNodeAddresses.get(respNode)}/${shortUrl}", StatusCodes.MovedPermanently)
     }
   }
+*/
 }
