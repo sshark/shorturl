@@ -65,8 +65,9 @@ trait UrlApi extends DefaultJsonProtocol with Config {
         })
       } else
         HttpResponse(StatusCodes.BadRequest, entity = respond.toJson.compactPrint)
+    }
   }
-  
+
   def createCommand(longUrl: String, shortUrlId: Long, random : Boolean) = {
     import JsProtocol._
     val command = UrlShorteningCommand(normalizeUrl(longUrl), shortUrlId, random)

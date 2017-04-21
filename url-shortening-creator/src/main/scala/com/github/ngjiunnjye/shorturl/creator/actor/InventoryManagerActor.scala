@@ -1,20 +1,17 @@
 package com.github.ngjiunnjye.shorturl.creator.actor
 
-import scala.collection.JavaConversions.iterableAsScalaIterable
-import scala.collection.JavaConversions.seqAsJavaList
+import akka.actor.{Actor, actorRef2Scala}
+import com.github.ngjiunnjye.cryptor.Base62
+import com.github.ngjiunnjye.shorturl.utils.JsProtocol.requestFormat
+import com.github.ngjiunnjye.shorturl.utils.{Config, UrlShorteningRequest}
+import spray.json.JsonParser
+import spray.json.ParserInput.apply
+
+import scala.collection.JavaConversions.{iterableAsScalaIterable, seqAsJavaList}
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.DurationInt
-
-import com.github.ngjiunnjye.cryptor.Base62
-import com.github.ngjiunnjye.shorturl.utils.Config
-import com.github.ngjiunnjye.shorturl.utils.JsProtocol.requestFormat
-import com.github.ngjiunnjye.shorturl.utils.UrlShorteningRequest
-
-import akka.actor.Actor
-import akka.actor.actorRef2Scala
-import spray.json.JsonParser
-import spray.json.ParserInput.apply
+import scala.util.Try
 
 case class InsertStatus(status: Boolean, message: String)
 
@@ -74,25 +71,19 @@ class InventoryManagerActor extends Actor with Config  with InventoryJournal {
     case _ => println("unknown Request")
   }
 
-  def processCreateRequest(req: UrlShorteningRequest) = {
-    println (s"InventoryManager got ${req}")
-    req.shortUrl match {
-      case Some(target) => processCreateRequestPefered(req.longUrl, target)
-      case None         => processCreateRequestRandom(req.longUrl)
-    }
-  }
+  def processCreateRequest(req: UrlShorteningRequest) =
+    req.shortUrl.map(target => processCreateRequestPreferred(req.longUrl, target))
+      .getOrElse(processCreateRequestRandom(req.longUrl))
 
-  def processCreateRequestPefered(longUrl: String, shortUrl: String): InsertStatus = {
-    val shortUrlId = Base62.decode(shortUrl)
-    if (preferedList.contains(Base62.decode(shortUrl))) {
-      println(s"${shortUrl} not available")
-      InsertStatus(false, s"${shortUrl} not available")
-    } else {
-      preferedList +=(Base62.decode(shortUrl))
-      finalizeSuccess(longUrl, shortUrlId, false)
-    }
-
-  }
+  def processCreateRequestPreferred(longUrl: String, shortUrl: String): Try[InsertStatus] =
+    Base62.decode(shortUrl).map(code =>
+      if (preferedList.contains(code)) {
+        println(s"${shortUrl} not available")
+        InsertStatus(false, s"${shortUrl} not available")
+      } else {
+        preferedList += code
+        finalizeSuccess(longUrl, code, false)
+      })
 
   def processCreateRequestRandom(longUrl: String): InsertStatus = {
     val id = getNextId
@@ -105,13 +96,9 @@ class InventoryManagerActor extends Actor with Config  with InventoryJournal {
     else maxId
   }
 
-  def finalizeSuccess(longUrl: String, shortUrlId: Long, random : Boolean): InsertStatus = {
-    println (s"Request Success ${longUrl} -> ${Base62.encode(shortUrlId)} ${random}")
+  def finalizeSuccess(longUrl: String, shortUrlId: Long, random : Boolean): InsertStatus =
     InsertStatus(true, Base62.encode(shortUrlId))
-  }
   
   def scheduleSnapshotMessage =
     context.system.scheduler.scheduleOnce(1.minute, self, "Snapshot")
-  
-
 }

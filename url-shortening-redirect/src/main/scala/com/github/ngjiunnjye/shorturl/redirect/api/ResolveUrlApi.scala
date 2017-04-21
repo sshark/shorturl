@@ -14,7 +14,6 @@ import com.github.ngjiunnjye.shorturl.redirect.actor.QueryStatus
 import com.github.ngjiunnjye.shorturl.utils.Config
 import spray.json.DefaultJsonProtocol
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
 import scala.language.postfixOps
@@ -37,20 +36,21 @@ trait ResolveUrlApi extends DefaultJsonProtocol {
         complete("Unable to find site to redirect to")
       }
     } ~ path(Segment) { shortUrl => {
-    println(s"Request received $shortUrl")
+      println(s"Request received $shortUrl")
 
-    implicit val timeout = Timeout(30 seconds)
+      implicit val timeout = Timeout(30 seconds)
 
-    Future.fromTry(Base62.decode(shortUrl)).zip(urlResolverActor ? shortUrl).map(x =>
-      if (x._1 == nodeId) {
-        val queryStatus = x.asInstanceOf[QueryStatus]
-        if (queryStatus.status) redirect(queryStatus.message, StatusCodes.MovedPermanently)
-        else redirect("unabletofindsitetoredirectto", StatusCodes.PermanentRedirect)
-      } else redirect(s"http://${readerNodeAddresses.get(x._1.toInt)}/${shortUrl}", StatusCodes.MovedPermanently))
-    }.result(10 second)
+      val f = Future.fromTry(Base62.decode(shortUrl)).zip(urlResolverActor ? shortUrl)
+      onComplete(f){x =>
+          if (x.get._1 == nodeId) {
+            val queryStatus = x.asInstanceOf[QueryStatus]
+            if (queryStatus.status) redirect(queryStatus.message, StatusCodes.MovedPermanently)
+            else redirect("unabletofindsitetoredirectto", StatusCodes.PermanentRedirect)
+          } else redirect(s"http://${readerNodeAddresses.get(x.get._1.toInt)}/${shortUrl}", StatusCodes.MovedPermanently)
+      }
+    }
   }
 }
-
 
 /*
     val respNode = ( % 2).toInt
