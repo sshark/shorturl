@@ -13,7 +13,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.DurationInt
 import scala.util.Try
 
-case class InsertStatus(status: Boolean, message: String)
+case class InsertStatus(message: Option[String])
 
 class InventoryManagerActor extends Actor with Config  with InventoryJournal {
   
@@ -79,26 +79,22 @@ class InventoryManagerActor extends Actor with Config  with InventoryJournal {
     Base62.decode(shortUrl).map(code =>
       if (preferedList.contains(code)) {
         println(s"${shortUrl} not available")
-        InsertStatus(false, s"${shortUrl} not available")
+        InsertStatus(None)
       } else {
         preferedList += code
-        finalizeSuccess(longUrl, code, false)
+        InsertStatus(Some(Base62.encode(code)))
       })
 
-  def processCreateRequestRandom(longUrl: String): InsertStatus = {
-    val id = getNextId
-    finalizeSuccess(longUrl, id, true)
-  }
+  def processCreateRequestRandom(longUrl: String): InsertStatus =
+    InsertStatus(Some(Base62.encode(getNextId)))
 
-  def getNextId(): Long = {
+
+  def getNextId: Long = {
     maxId += 1
     if (preferedList.contains(maxId)) getNextId
     else maxId
   }
 
-  def finalizeSuccess(longUrl: String, shortUrlId: Long, random : Boolean): InsertStatus =
-    InsertStatus(true, Base62.encode(shortUrlId))
-  
   def scheduleSnapshotMessage =
     context.system.scheduler.scheduleOnce(1.minute, self, "Snapshot")
 }

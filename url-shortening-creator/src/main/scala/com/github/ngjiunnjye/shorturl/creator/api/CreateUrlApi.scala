@@ -51,26 +51,20 @@ trait UrlApi extends DefaultJsonProtocol with Config {
     val future = inventoryManager ? req
     future.map{ result => // TODO result is a Try[Any]
       val insertStatus = result.asInstanceOf[InsertStatus]
-      val respond = UrlShorteningRespond(insertStatus.status, req.longUrl,
-        if (insertStatus.status)
-          Option(insertStatus.message)
-        else
-          req.shortUrl)
+      val respond = UrlShorteningRespond(req.longUrl, insertStatus.message.orElse(req.shortUrl))
 
       // TODO Try[HttpResponse] vs HttpResponse
-      val response = if (insertStatus.status) {
-        Base62.decode(insertStatus.message).map(id => {
+      (insertStatus.message match {
+        case Some(message) => Base62.decode(message).map(id => {
           createCommand(req.longUrl,
             id,
             req.shortUrl.isDefined)
           HttpResponse(entity = respond.toJson.compactPrint)
         })
-      } else
-        Try(HttpResponse(StatusCodes.BadRequest, entity = respond.toJson.compactPrint))
-      response.get
+        case None => Try(HttpResponse(StatusCodes.BadRequest, entity = respond.toJson.compactPrint))
+      }).get
     }
   }
-
 
   def createCommand(longUrl: String, shortUrlId: Long, random : Boolean) = {
     import JsProtocol._
