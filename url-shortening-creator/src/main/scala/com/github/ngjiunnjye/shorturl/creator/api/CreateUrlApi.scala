@@ -17,9 +17,9 @@ import com.github.ngjiunnjye.shorturl.utils._
 import org.apache.kafka.clients.producer.ProducerRecord
 import spray.json.{DefaultJsonProtocol, pimpAny}
 
-import scala.concurrent.Await
 import scala.concurrent.duration.DurationInt
-
+import scala.language.postfixOps
+import scala.util.Try
 
 trait UrlApi extends DefaultJsonProtocol with Config {
   val kafkaProducer = KafkaProducer.createStringStringProducer
@@ -42,31 +42,31 @@ trait UrlApi extends DefaultJsonProtocol with Config {
     }
   
   def processUrlShortReq (req : UrlShorteningRequest ) : StandardRoute = {
-
-    complete {
-      println(s"Request received ${req.longUrl} -> ${req.shortUrl.getOrElse("NONE")}")
-      implicit val timeout = Timeout(30 seconds)
-      val future = inventoryManager ? req
-      val result = Await.result(future, timeout.duration).asInstanceOf[InsertStatus]
-
-      val respond = UrlShorteningRespond(result.status, req.longUrl,
-        if (result.status)
-          Option(result.message)
+    println(s"Request received ${req.longUrl} -> ${req.shortUrl.getOrElse("NONE")}")
+    implicit val timeout = Timeout(30 seconds)
+    val future = inventoryManager ? req
+    onComplete(future) { result => // TODO result is a Try[Any]
+      val insertStatus = result.get.asInstanceOf[InsertStatus]
+      val respond = UrlShorteningRespond(insertStatus.status, req.longUrl,
+        if (insertStatus.status)
+          Option(insertStatus.message)
         else
           req.shortUrl)
 
       // TODO Try[HttpResponse] vs HttpResponse
-      if (result.status) {
-        Base62.decode(result.message).map(id => {
+      val response = if (insertStatus.status) {
+        Base62.decode(insertStatus.message).map(id => {
           createCommand(req.longUrl,
             id,
             req.shortUrl.isDefined)
           HttpResponse(entity = respond.toJson.compactPrint)
         })
       } else
-        HttpResponse(StatusCodes.BadRequest, entity = respond.toJson.compactPrint)
+        Try(HttpResponse(StatusCodes.BadRequest, entity = respond.toJson.compactPrint))
+      response.get
     }
   }
+
 
   def createCommand(longUrl: String, shortUrlId: Long, random : Boolean) = {
     import JsProtocol._

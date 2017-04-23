@@ -41,7 +41,7 @@ trait ResolveUrlApi extends DefaultJsonProtocol {
       implicit val timeout = Timeout(30 seconds)
 
       val f = Future.fromTry(Base62.decode(shortUrl)).zip(urlResolverActor ? shortUrl)
-      onComplete(f){x =>
+      onComplete(f){x =>  // TODO x is a Try[Any]
           if (x.get._1 == nodeId) {
             val queryStatus = x.asInstanceOf[QueryStatus]
             if (queryStatus.status) redirect(queryStatus.message, StatusCodes.MovedPermanently)
