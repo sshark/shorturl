@@ -6,7 +6,6 @@ import akka.http.scaladsl.marshalling.ToResponseMarshallable.apply
 import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse, StatusCodes}
 import akka.http.scaladsl.server.Directive.{addByNameNullaryApply, addDirectiveApply}
 import akka.http.scaladsl.server.Directives.{as, complete, decodeRequest, entity, get, path, post, _}
-import akka.http.scaladsl.server.StandardRoute
 import akka.pattern.ask
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
@@ -17,6 +16,7 @@ import com.github.ngjiunnjye.shorturl.utils._
 import org.apache.kafka.clients.producer.ProducerRecord
 import spray.json.{DefaultJsonProtocol, pimpAny}
 
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.DurationInt
 import scala.language.postfixOps
 import scala.util.Try
@@ -32,21 +32,25 @@ trait UrlApi extends DefaultJsonProtocol with Config {
     path("url" / "create") {
       get {
         complete(HttpEntity(ContentTypes.`text/plain(UTF-8)`, "<sourceUrl>, <targetUrl>"))
-      } ~
-        post {
-          decodeRequest {
-            entity(as[UrlShorteningRequest]) { req => processUrlShortReq(req)
+      } ~ post {
+        decodeRequest {
+          entity(as[UrlShorteningRequest]) { req =>
+            complete {
+              processUrlShortReq(req)
             }
           }
         }
+      }
     }
   
-  def processUrlShortReq (req : UrlShorteningRequest ) : StandardRoute = {
+  def processUrlShortReq (req : UrlShorteningRequest ) = {
     println(s"Request received ${req.longUrl} -> ${req.shortUrl.getOrElse("NONE")}")
+//    Future(HttpResponse(StatusCodes.BadRequest))
+
     implicit val timeout = Timeout(30 seconds)
     val future = inventoryManager ? req
-    onComplete(future) { result => // TODO result is a Try[Any]
-      val insertStatus = result.get.asInstanceOf[InsertStatus]
+    future.map{ result => // TODO result is a Try[Any]
+      val insertStatus = result.asInstanceOf[InsertStatus]
       val respond = UrlShorteningRespond(insertStatus.status, req.longUrl,
         if (insertStatus.status)
           Option(insertStatus.message)
@@ -77,6 +81,6 @@ trait UrlApi extends DefaultJsonProtocol with Config {
   }
   
   def normalizeUrl (longUrl : String) : String =
-    if ((longUrl.startsWith("http://")) || (longUrl.startsWith("https://"))) longUrl  
+    if (longUrl.startsWith("http://") || longUrl.startsWith("https://")) longUrl
     else s"http://${longUrl}"
 }
