@@ -13,6 +13,7 @@ case class QueryStatus(status: Boolean, message: String)
 
 class UrlResolverActor extends Actor with Config with CreateShortUrlTable {
 
+  // TODO redo database connection because it create a new connection with every action
   val jdbcConn = Try {
     Class.forName("org.h2.Driver");
     DriverManager.getConnection(s"jdbc:h2:tcp://${h2ServerUrls.get(nodeId)}", "", "");

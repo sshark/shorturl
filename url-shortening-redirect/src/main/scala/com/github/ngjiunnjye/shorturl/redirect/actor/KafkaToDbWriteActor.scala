@@ -18,15 +18,15 @@ import scala.util.Try
 
 
 class KafkaToDbWriteActor extends Actor with Config with CreateShortUrlTable {
-  val jdbcConn = {
-    Class.forName("org.h2.Driver");
-    DriverManager.getConnection(s"jdbc:h2:tcp://${h2ServerUrls.get(nodeId)}", "", "");
-  }
+  val jdbcConn = for {
+    _ <- Try(Class.forName("org.h2.Driver"))
+    conn <- Try(DriverManager.getConnection(s"jdbc:h2:tcp://${h2ServerUrls.get(nodeId)}", "", ""))
+  } yield conn
 
-  val insertPS = Try {
-    createShortUrlTableIfNotExists(jdbcConn)
-    jdbcConn.prepareStatement("insert into short_Url (id, long_url, random) values (?,?, ?)")
-  }
+  val insertPS = jdbcConn.map(conn => {
+    createShortUrlTableIfNotExists(conn)
+    conn.prepareStatement("insert into short_Url (id, long_url, random) values (?,?, ?)")
+  })
 
   val consumer = KafkaConsumer.createStringStringConsumer(s"redirect")
   val topic: String = "url.shortening.command";
@@ -42,22 +42,15 @@ class KafkaToDbWriteActor extends Actor with Config with CreateShortUrlTable {
 
   }
 
-  override def preStart() = {
-    scheduleFetchMessage
-  }
+  override def preStart() = scheduleFetchMessage
 
   override def postStop(): Unit = consumer.close
 
   def fetch = {
     val records = consumer.poll(POLL_TIMOUT_MS)
     records.foreach { record =>
-      val kafkaMsg = record.value
       //TODO commit after write val offset = record.offset()
-      JsonParser(kafkaMsg).convertTo[UrlShorteningCommand] match {
-        case cmd: UrlShorteningCommand =>
-          insert(cmd)
-        case _ => println(s"????")
-      }
+      insert(JsonParser(record.value).convertTo[UrlShorteningCommand])
     }
     scheduleFetchMessage
     records.size

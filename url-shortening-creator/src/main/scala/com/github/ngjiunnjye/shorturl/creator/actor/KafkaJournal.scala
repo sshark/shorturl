@@ -1,20 +1,10 @@
 package com.github.ngjiunnjye.shorturl.creator.actor
 
+import com.github.ngjiunnjye.kafka.{Consumer => KafkaConsumer, Producer => KafkaProducer}
+import com.github.ngjiunnjye.shorturl.utils.{JsProtocol, UrlShorteningRequest}
 import org.apache.kafka.clients.producer.ProducerRecord
-
-import com.github.ngjiunnjye.kafka.{ Producer => KafkaProducer }
-import com.github.ngjiunnjye.shorturl.utils.JsProtocol
-import com.github.ngjiunnjye.shorturl.utils.UrlShorteningRequest
-import com.github.ngjiunnjye.kafka.{ Consumer => KafkaConsumer }
 import spray.json.DefaultJsonProtocol._
-
 import spray.json.pimpAny
-import scala.collection.mutable.ListBuffer
-import scala.collection.JavaConversions.iterableAsScalaIterable
-import scala.collection.JavaConversions.seqAsJavaList
-import scala.concurrent.ExecutionContext.Implicits.global
-import com.github.ngjiunnjye.shorturl.utils.UrlShorteningCommand
-import spray.json.JsonParser
 
 
 case class InventorySnapshot (lastRequestTime : Long, maxId : Long, preferedList : List [Long])
@@ -41,6 +31,5 @@ trait InventoryJournal {
   def createRequestSnapShot(req: InventorySnapshot) = {
     kafkaProducer.send(new ProducerRecord[Long, String](snapShotTopic,
       snapshotLastReqTime, req.toJson.compactPrint))
-  }  
-  
+  }
 }

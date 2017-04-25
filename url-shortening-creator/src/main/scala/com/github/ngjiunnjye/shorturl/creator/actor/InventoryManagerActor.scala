@@ -31,9 +31,8 @@ class InventoryManagerActor extends Actor with Config  with InventoryJournal {
       println (s" last snapshot ${records.last.value()}")
       JsonParser(records.last.value()).convertTo[InventorySnapshot]
     }
-    
-  
-  }  
+  }
+
   def journalPlayback  = {
     val invSnapShot = getLastSnapshot
     val snapShotTime = invSnapShot.lastRequestTime
@@ -45,9 +44,8 @@ class InventoryManagerActor extends Actor with Config  with InventoryJournal {
     val records = consumer.poll(POLL_TIMOUT_MS)
     println (s"journalPlayback ${records.size}")
     records.foreach { record =>
-      val kafkaMsg = record.value
-      if (record.key > snapShotTime)
-        processCreateRequest(JsonParser(kafkaMsg).convertTo[UrlShorteningRequest]) 
+      Option(record.key()).filter(_ > snapShotTime).foreach(_ =>
+        processCreateRequest(JsonParser(record.value).convertTo[UrlShorteningRequest]))
     }
     consumer.close()
   }
@@ -87,7 +85,6 @@ class InventoryManagerActor extends Actor with Config  with InventoryJournal {
 
   def processCreateRequestRandom(longUrl: String): InsertStatus =
     InsertStatus(Some(Base62.encode(getNextId)))
-
 
   def getNextId: Long = {
     maxId += 1
